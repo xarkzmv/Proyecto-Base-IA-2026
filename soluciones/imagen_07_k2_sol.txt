@@ -1,0 +1,8 @@
+instancia imagen_07_k2
+imagen imagen_07.jpg
+k 2
+semilla 42
+umbrales 35 98
+f 1693.07313428
+iteraciones 88
+evaluaciones 357

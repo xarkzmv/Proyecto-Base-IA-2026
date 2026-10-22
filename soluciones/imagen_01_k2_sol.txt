@@ -1,0 +1,8 @@
+instancia imagen_01_k2
+imagen imagen_01.jpg
+k 2
+semilla 42
+umbrales 39 107
+f 1996.38713528
+iteraciones 75
+evaluaciones 305

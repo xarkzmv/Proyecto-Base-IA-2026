@@ -1,0 +1,8 @@
+instancia imagen_05_k4
+imagen imagen_05.jpg
+k 4
+semilla 42
+umbrales 23 57 91 139
+f 1600.81082311
+iteraciones 92
+evaluaciones 745

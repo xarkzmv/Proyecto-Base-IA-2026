@@ -1,0 +1,8 @@
+instancia imagen_10_k6
+imagen imagen_10.jpg
+k 6
+semilla 42
+umbrales 21 50 74 105 139 175
+f 1340.04089646
+iteraciones 106
+evaluaciones 1285

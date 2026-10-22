@@ -1,0 +1,8 @@
+instancia imagen_08_k2
+imagen imagen_08.jpg
+k 2
+semilla 42
+umbrales 36 103
+f 1799.34783919
+iteraciones 82
+evaluaciones 333
