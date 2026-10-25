@@ -122,50 +122,81 @@ double f(const vector<int>& t, const Instancia& ins) {
     return valor;
 }
 
-/// SOLUCIÓN INICIAL
+// ------------------------------------------------------------  SOLUCIÓN INICIAL
 // Se probaron con dos opciones, una es aleatoria y la otra es Greedy con aleatoriedad para combrobar cual es más eficiente. 
 
-// ------------------------------------------------------------ Solucion inicial ALEATORIO
+// --------------------------------------------------Solucion inicial ALEATORIO
 
-// k umbrales distintos elegidos al azar en [1,254] y ordenados.
+// Solución inicial aleatoria: elige k umbrales distintos entre 1 y 254, en orden creciente.
 vector<int> solucionInicialAleatoria(int k, mt19937& rng) {
-    vector<int> valores(T_MAX - T_MIN + 1);
-    iota(valores.begin(), valores.end(), T_MIN);
-    shuffle(valores.begin(), valores.end(), rng);
-    vector<int> t(valores.begin(), valores.begin() + k);
-    sort(t.begin(), t.end());
-    return t;
+
+    // 1. Arma el "mazo": una lista con todos los valores posibles de un umbral: 1, 2, 3, ..., 254
+    vector<int> mazo(T_MAX - T_MIN + 1);        // 254 posiciones
+    iota(mazo.begin(), mazo.end(), T_MIN);      // las llena con 1, 2, 3, ... (iota = "numerar")
+
+    // 2. Baraja el mazo al azar (rng es el generador aleatorio, con la semilla)
+    shuffle(mazo.begin(), mazo.end(), rng);
+
+    // 3. Saca las primeras k cartas: son k valores distintos, porque cada número aparece una sola vez
+    vector<int> umbrales(mazo.begin(), mazo.begin() + k);
+
+    // 4. Las ordena de menor a mayor, porque la solución exige t1 < t2 < ... < tk
+    sort(umbrales.begin(), umbrales.end());
+
+    return umbrales;
 }
 
-// ------------------------------------------------------------ Solucion inicial GREEDY con Aleatoriedad
+
+// -------------------------------------------------- Solucion inicial GREEDY con Aleatoriedad
 // Constructivo greedy: parte sin umbrales y agrega uno por paso. En cada paso prueba
 // los candidatos [1,254] que aun no se usan y se queda con el que deja la funcion
 // objetivo mas alta (considerando los umbrales ya elegidos). Con m = 1 es determinista;
 // con m > 1 se sortea entre los m mejores candidatos de cada paso (greedy aleatorizado).
-const int M_GREEDY = 3;
 
+const int M_GREEDY = 3;   // cuántos de los mejores candidatos entran al sorteo en cada paso
+
+// Solución inicial greedy aleatorizada.
+// Construye la solución de a un umbral por vez. En cada paso:
+//   1. prueba todos los valores posibles que aún no se usaron,
+//   2. los ordena de mejor a peor según f,
+//   3. sortea uno entre los m mejores (con m = 1 siempre elige el mejor: determinista).
 vector<int> solucionInicialGreedy(const Instancia& ins, mt19937& rng, int m) {
-    vector<int> t;
-    for (int paso = 0; paso < ins.k; ++paso) {
+    vector<int> umbrales;                       // empieza vacía
+
+    for (int paso = 0; paso < ins.k; ++paso) {  // un umbral nuevo por paso
+
+        // --- 1. Probar cada candidato y anotar cuánto vale f con él ---
+        // Cada candidato es un par (valor de f, umbral probado)
         vector<pair<double, int>> candidatos;
-        for (int c = T_MIN; c <= T_MAX; ++c) {
-            if (find(t.begin(), t.end(), c) != t.end()) continue;
-            vector<int> prueba = t;
-            prueba.push_back(c);
-            sort(prueba.begin(), prueba.end());
+
+        for (int c = T_MIN; c <= T_MAX; ++c) {  // c = 1, 2, ..., 254
+            bool yaUsado = find(umbrales.begin(), umbrales.end(), c) != umbrales.end();
+            if (yaUsado) continue;              // no repetir umbrales
+
+            vector<int> prueba = umbrales;      // copia de lo que llevamos
+            prueba.push_back(c);                // más el candidato
+            sort(prueba.begin(), prueba.end()); // f necesita los umbrales ordenados
+
             candidatos.push_back({f(prueba, ins), c});
         }
-        int tope = min<int>(m, candidatos.size());
-        partial_sort(candidatos.begin(), candidatos.begin() + tope, candidatos.end(),
+
+        // --- 2. Ordenar los m mejores al comienzo de la lista (mayor f primero) ---
+        int cuantos = min<int>(m, candidatos.size());
+        partial_sort(candidatos.begin(), candidatos.begin() + cuantos, candidatos.end(),
                      [](const pair<double, int>& a, const pair<double, int>& b) {
-                         return a.first > b.first;
+                         return a.first > b.first;   // a va antes que b si su f es mayor
                      });
-        int elegido = candidatos[uniform_int_distribution<int>(0, tope - 1)(rng)].second;
-        t.push_back(elegido);
-        sort(t.begin(), t.end());
+
+        // --- 3. Sortear uno de los m mejores y agregarlo ---
+        int posicion = uniform_int_distribution<int>(0, cuantos - 1)(rng);
+        int elegido = candidatos[posicion].second;  // .second = el umbral (.first era f)
+
+        umbrales.push_back(elegido);
+        sort(umbrales.begin(), umbrales.end());
     }
-    return t;
+    return umbrales;
 }
+
 
 // ----------------------------------------------- Hill Climbing, mejor mejora
 // Vecindario: cada umbral puede quedarse igual o moverse hasta RADIO unidades hacia
