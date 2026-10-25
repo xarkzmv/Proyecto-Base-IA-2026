@@ -31,8 +31,7 @@ run: hill_climbing
 
 # Compara el resumen con el optimo exacto de cada instancia
 comparar:
-	python3 comparar_optimo.py $(INSTANCIAS) $(SALIDA)/resumen.csv
-
+	python3 scripts/comparar_optimo.py $(INSTANCIAS) $(SALIDA)/resumen.csv
 
 clean:
 	$(RM) preprocesar segmentar hill_climbing *.o *.d

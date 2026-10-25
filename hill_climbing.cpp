@@ -122,6 +122,9 @@ double f(const vector<int>& t, const Instancia& ins) {
     return valor;
 }
 
+/// SOLUCIÓN INICIAL
+// Se probaron con dos opciones, una es aleatoria y la otra es Greedy con aleatoriedad para combrobar cual es más eficiente. 
+
 // ------------------------------------------------------------ Solucion inicial ALEATORIO
 
 // k umbrales distintos elegidos al azar en [1,254] y ordenados.
@@ -263,8 +266,8 @@ int main(int argc, char* argv[]) {
         Instancia ins = leerInstancia(rutaInstancia);
         mt19937 rng(semilla);
 
-        vector<int> inicial = solucionInicialAleatoria(ins.k, rng);
-        //vector<int> inicial = solucionInicialGreedy(ins, rng, M_GREEDY);
+        //vector<int> inicial = solucionInicialAleatoria(ins.k, rng);
+        vector<int> inicial = solucionInicialGreedy(ins, rng, M_GREEDY);
         double fInicial = f(inicial, ins);
         Resultado r = hillClimbing(ins, inicial);
 

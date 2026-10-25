@@ -137,4 +137,135 @@ preprocesadas. En la carpeta de salida guarda:
 - `histograma.csv`: frecuencias de la imagen de entrada.
 
 
-Y eso!! Estas son las funciones básicas de lectura de imágenes, intensidades, etc. Este es el punto de partida, de acá en adelante te toca implementar la parte algorítmica :D.
+****
+# Presentación 1: Entrega Código
+
+## Implementación: Hill Climbing con Mejor Mejora
+
+Segmentación multiumbral de imágenes MRI de 256×256 en 8 bits con el criterio de Otsu.
+Para cada imagen y cada k ∈ {2, 4, 6} (30 instancias en total) se buscan k umbrales que
+maximizan la varianza entre clases, usando **Hill Climbing con Mejor Mejora**.
+
+### Estructura del proyecto
+
+```
+Proyecto-Base-IA-2026/
+├── dataset_original/          Imágenes originales del dataset
+├── ejemplo/                   Ejemplo entregado con el código base
+├── imagenes_preprocesadas/
+│   ├── imagenes/              Imágenes de 256×256 en escala de grises (imagen_01.jpg ...)
+│   └── instancias/            Una instancia por imagen y k (imagen_01_k2.txt ...)
+├── soluciones/                Salida de hill_climbing: <instancia>_sol.txt y los resumen*.csv
+├── figuras/                   Gráficos generados por los scripts de Python
+├── scripts/
+│   ├── figura_segmentacion.py   Figura: imagen original | histograma con umbrales | imagen segmentada
+│   └── graficos_comparacion.py  Gráficos: solución inicial aleatoria vs. greedy aleatorizado
+├── preprocesar.cpp            Código base: genera las instancias desde las imágenes
+├── segmentar.cpp, imagenes.*  Código base: aplica los umbrales y segmenta la imagen
+├── hill_climbing.cpp          Algoritmo implementado (este trabajo)
+├── run_segmentar.sh           Ejecuta hill_climbing sobre las 30 instancias y arma resumen.csv
+├── Makefile
+└── README.md
+```
+
+### Requisitos y compilación
+
+- g++ con soporte C++17, `make` y OpenCV 4 (solo para `preprocesar` y `segmentar`).
+- Python 3 con `numpy`, `matplotlib` y `pillow` (solo para los scripts de gráficos).
+
+```bash
+make                  # compila preprocesar, segmentar y hill_climbing
+make hill_climbing    # compila solo el algoritmo (no necesita OpenCV)
+make clean
+```
+
+### Ejecución
+
+Una instancia:
+
+```bash
+./hill_climbing <instancia.txt> <carpeta_salida> [semilla]
+./hill_climbing imagenes_preprocesadas/instancias/imagen_01_k6.txt soluciones 42
+```
+
+Las 30 instancias (genera `soluciones/*_sol.txt` y `soluciones/resumen.csv`):
+
+```bash
+make run                         # semilla 42
+make run SEMILLA=7 SALIDA=soluciones_v2
+```
+
+
+Comparar los resultados con el óptimo exacto de cada instancia (programación dinámica):
+ 
+```bash
+make comparar                                      # lee soluciones/resumen.csv
+make comparar RESUMEN=soluciones/resumenGreedy.csv # o cualquier otro CSV de resumen
+```
+ 
+Imprime, por instancia, `OPTIMO` o `LOCAL` (óptimo local) y al final cuántas instancias están en el óptimo exacto.
+ 
+`resumen.csv` tiene una fila por instancia: `instancia, k, f_inicial, f_final, iteraciones,
+evaluaciones, umbrales, valida`. La columna `valida` verifica 1 ≤ t₁ < … < t_k ≤ 254.
+
+En mi caso modifiqué el nombre de los resultados de Aleatorio y Greedy para analizarlos. 
+`resumenAleatorio.csv` y `resumenGreedy.csv` 
+
+### Formato de entrada y salida
+
+**Entrada** (`<imagen>_k<k>.txt`): cabecera `SEGMENTACION_MULTIUMBRAL_V1`, luego `imagen`, `ancho`,
+`alto`, `L`, `k`, `N` y el `histograma` de 256 frecuencias.
+
+**Salida** (`<instancia>_sol.txt`):
+
+```
+instancia imagen_01_k6
+imagen imagen_01.jpg
+k 6
+semilla 42
+umbrales 16 46 73 99 128 164
+f 2124.31016
+iteraciones 22
+evaluaciones 16745
+```
+
+### El algoritmo (`hill_climbing.cpp`)
+
+- **Representación:** un vector ordenado `t = (t₁ < … < t_k)` de enteros. Las clases son
+  [0, t₁], [t₁+1, t₂], …, [t_k+1, 255].
+- **Restricciones:** 1 ≤ t₁ < … < t_k ≤ 254. La solución inicial las cumple por construcción
+  y el movimiento descarta los vecinos que las violan, por lo que nunca se evalúa una solución inválida.
+- **Función de evaluación:** f(t) = Σⱼ ωⱼ (μⱼ − μ_T)², la varianza entre clases (se maximiza).
+  Con las sumas acumuladas P y S del histograma, cada evaluación cuesta O(k) y no recorre píxeles.
+- **Solución inicial:** hay dos versiones.
+  - *Aleatoria* (`solucionInicialAleatoria`): sortea k valores distintos en [1, 254] y los ordena.
+  - *Greedy aleatorizado* (`solucionInicialGreedy`, m = 3): agrega un umbral por paso; en cada
+    paso evalúa todos los candidatos no usados y elige al azar entre los m = 3 que más aumentan f.
+  - La versión usada está en `main` (por defecto, greedy). Para cambiar, comenta una línea y
+    descomenta la otra (`solucionInicialAleatoria` / `solucionInicialGreedy`) y recompila con `make hill_climbing`.
+- **Movimiento (vecindario):** cada umbral puede quedar igual o moverse ±RADIO (RADIO = 1) y todos
+  se mueven a la vez, lo que da 3^k − 1 vecinos (728 con k = 6). Esto permite salir de óptimos
+  locales a los que llega un movimiento de un solo umbral ±1.
+- **Mejor mejora:** en cada iteración se evalúan todos los vecinos válidos y se pasa al mejor, solo si mejora
+  estrictamente a la solución actual. El algoritmo termina en un óptimo local; **no garantiza el óptimo global**.
+- **Métricas:** una *iteración* es un movimiento realizado. Una *evaluación* es un cálculo de f.
+  El contador de evaluaciones incluye la búsqueda, pero **no** la construcción del greedy
+  (507 / 1010 / 1509 evaluaciones para k = 2 / 4 / 6).
+- **Reproducibilidad:** la semilla (por defecto 42) fija el generador `mt19937`.
+
+### Scripts de análisis
+
+Se ejecutan desde la raíz del proyecto.
+
+```bash
+# Figura de una instancia: python3 scripts/figura_segmentacion.py <imagen> <k> <resumen.csv> <carpeta_imagenes>
+python3 scripts/figura_segmentacion.py imagen_01 6 soluciones/resumenGreedy.csv imagenes_preprocesadas/imagenes
+#   -> guarda fig_<imagen>_k<k>.png en el directorio actual
+
+# Comparación aleatoria vs. greedy (promedios por k de f inicial, f final, iteraciones y evaluaciones)
+python3 scripts/graficos_comparacion.py soluciones/resumenAleatorio.csv soluciones/resumenGreedy.csv figuras
+```
+
+Para comparar las dos soluciones iniciales, se ejecuta `make run` con cada versión y se guarda cada
+`resumen.csv` con otro nombre (`resumenAleatorio.csv`, `resumenGreedy.csv`).
+

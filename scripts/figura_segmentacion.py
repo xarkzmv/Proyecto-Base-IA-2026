@@ -2,9 +2,8 @@
 """Figura de una instancia: imagen original | histograma con umbrales | imagen segmentada.
 
 Uso (desde la carpeta del proyecto):
-  python3 figura_segmentacion.py imagen_01 4
-  python3 figura_segmentacion.py imagen_01 4 soluciones/resumen.csv imagenes_preprocesadas/imagenes
-
+  python3 ./scripts/figura_segmentacion.py imagen_01 4 ./soluciones/resumenGreedy.csv ./imagenes_preprocesadas/imagenes
+  
 Requiere: pip install numpy matplotlib pillow
 Convencion de clases igual que mri::segmentar: [0,t1], [t1+1,t2], ..., [tk+1,255].
 """
