@@ -4,5 +4,5 @@ k 4
 semilla 42
 umbrales 24 58 92 133
 f 1771.05679026
-iteraciones 95
-evaluaciones 769
+iteraciones 39
+evaluaciones 3201

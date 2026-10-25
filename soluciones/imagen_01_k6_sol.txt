@@ -2,7 +2,7 @@ instancia imagen_01_k6
 imagen imagen_01.jpg
 k 6
 semilla 42
-umbrales 16 46 73 100 130 166
-f 2124.29196546
-iteraciones 133
-evaluaciones 1609
+umbrales 16 46 73 99 128 164
+f 2124.31016014
+iteraciones 41
+evaluaciones 30577

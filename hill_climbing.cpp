@@ -29,11 +29,12 @@ const int T_MAX = L - 2;  // mayor valor permitido para un umbral (254)
 struct Instancia {
     string imagen;
     int k = 0;
-    long long N = 0;
+    long long N = 0; // la suma del histograma -> N = ancho x alto
     array<long long, L> h{};
     // Sumas acumuladas: P[i] = sum_{g<i} h[g],  S[i] = sum_{g<i} g*h[g]
-    array<long long, L + 1> P{}, S{};
-    double muT = 0.0;
+    array<long long, L + 1> P{}; 
+    array<long long, L + 1> S{};
+    double muT = 0.0; // Media global
 };
 
 Instancia leerInstancia(const fs::path& ruta) {
@@ -69,38 +70,62 @@ Instancia leerInstancia(const fs::path& ruta) {
     if (ins.k < 1 || ins.k > T_MAX - T_MIN + 1) throw runtime_error("k invalido");
     if (ins.N != 1LL * ancho * alto) throw runtime_error("N no coincide con ancho*alto");
 
+    // Validamos 
     long long suma = accumulate(ins.h.begin(), ins.h.end(), 0LL);
     if (suma != ins.N) throw runtime_error("La suma del histograma no es N");
 
+    // Sumas acumuladas, 
     for (int g = 0; g < L; ++g) {
-        ins.P[g + 1] = ins.P[g] + ins.h[g];
-        ins.S[g + 1] = ins.S[g] + 1LL * g * ins.h[g];
+        // Cuántos píxeles hay con intensidad menor que i. 
+        ins.P[g + 1] = ins.P[g] + ins.h[g]; 
+        // La suma de g*h(g) para esos mismos niveles, es decir, la suma de todas las intensidades de esos pixeles. 
+        ins.S[g + 1] = ins.S[g] + 1LL * g * ins.h[g]; 
     }
-    ins.muT = static_cast<double>(ins.S[L]) / ins.N;
+    // Media Global 
+    // static_cast<double>: Convierte a decimal antes de dividir, porque dividir entre dos enteros descartaría los decimales. 
+    ins.muT = static_cast<double>(ins.S[L]) / ins.N; // Suma de las intensidades de todos los px dividido en N. 
     return ins;
 }
 
 // ------------------------------------------------------- Funcion de evaluacion
+// Recibe un vector de umbrales t, y devuelve f(t). 
+
 // f(t) = sum_j w_j (mu_j - muT)^2   (se maximiza). Costo O(k) gracias a P y S.
 // Una clase vacia (w_j = 0) aporta 0.
-double evaluar(const vector<int>& t, const Instancia& ins) {
+double f(const vector<int>& t, const Instancia& ins) {
+    // k sale del tamano de t y no de ins.k: el greedy evalua soluciones parciales
+    // (con 1, 2, ... umbrales) mientras construye la solucion inicial.
     const int k = static_cast<int>(t.size());
-    double f = 0.0;
+
+    double valor = 0.0;
+
+    // Para cada clase j, calcula su rango [lo, hi], cuántos píxeles tiene P[hi+1] - P[lo]
     for (int j = 0; j <= k; ++j) {
-        int lo = (j == 0) ? 0 : t[j - 1] + 1;
-        int hi = (j == k) ? L - 1 : t[j];
+
+        int lo;
+        if (j == 0) lo = 0; // la primera clase parte en el nivel 0
+        else lo = t[j-1] + 1; // las demás parten justo después del umbral anterior
+
+        // Límite superior de la clase j
+        int hi;
+        if (j == k) hi = L - 1; // la última clase termina en el nivel 255
+        else hi = t[j]; // las demás terminan en su propio umbral
+        
+        // Cuántos píxeles tiene la clase (resta de sumas acumuladas)
         long long n = ins.P[hi + 1] - ins.P[lo];
         if (n == 0) continue;
-        double w = static_cast<double>(n) / ins.N;
-        double mu = static_cast<double>(ins.S[hi + 1] - ins.S[lo]) / n;
-        f += w * (mu - ins.muT) * (mu - ins.muT);
+
+        double w = static_cast<double>(n) / ins.N; // peso
+        double mu = static_cast<double>(ins.S[hi + 1] - ins.S[lo]) / n; // media de la clase
+        valor += w * (mu - ins.muT) * (mu - ins.muT);
     }
-    return f;
+    return valor;
 }
 
-// ------------------------------------------------------------ Solucion inicial
+// ------------------------------------------------------------ Solucion inicial ALEATORIO
+
 // k umbrales distintos elegidos al azar en [1,254] y ordenados.
-vector<int> solucionInicial(int k, mt19937& rng) {
+vector<int> solucionInicialAleatoria(int k, mt19937& rng) {
     vector<int> valores(T_MAX - T_MIN + 1);
     iota(valores.begin(), valores.end(), T_MIN);
     shuffle(valores.begin(), valores.end(), rng);
@@ -109,11 +134,47 @@ vector<int> solucionInicial(int k, mt19937& rng) {
     return t;
 }
 
+// ------------------------------------------------------------ Solucion inicial GREEDY con Aleatoriedad
+// Constructivo greedy: parte sin umbrales y agrega uno por paso. En cada paso prueba
+// los candidatos [1,254] que aun no se usan y se queda con el que deja la funcion
+// objetivo mas alta (considerando los umbrales ya elegidos). Con m = 1 es determinista;
+// con m > 1 se sortea entre los m mejores candidatos de cada paso (greedy aleatorizado).
+const int M_GREEDY = 3;
+
+vector<int> solucionInicialGreedy(const Instancia& ins, mt19937& rng, int m) {
+    vector<int> t;
+    for (int paso = 0; paso < ins.k; ++paso) {
+        vector<pair<double, int>> candidatos;
+        for (int c = T_MIN; c <= T_MAX; ++c) {
+            if (find(t.begin(), t.end(), c) != t.end()) continue;
+            vector<int> prueba = t;
+            prueba.push_back(c);
+            sort(prueba.begin(), prueba.end());
+            candidatos.push_back({f(prueba, ins), c});
+        }
+        int tope = min<int>(m, candidatos.size());
+        partial_sort(candidatos.begin(), candidatos.begin() + tope, candidatos.end(),
+                     [](const pair<double, int>& a, const pair<double, int>& b) {
+                         return a.first > b.first;
+                     });
+        int elegido = candidatos[uniform_int_distribution<int>(0, tope - 1)(rng)].second;
+        t.push_back(elegido);
+        sort(t.begin(), t.end());
+    }
+    return t;
+}
+
 // ----------------------------------------------- Hill Climbing, mejor mejora
-// Vecindario: mover un umbral una unidad hacia arriba o hacia abajo, sin salirse
-// de [1,254] y sin alcanzar a sus vecinos (así se mantiene 1<=t1<...<tk<=254).
-// En cada iteracion se evaluan todos los vecinos (a lo mas 2k) y se pasa al mejor,
+// Vecindario: cada umbral puede quedarse igual o moverse hasta RADIO unidades hacia
+// abajo o hacia arriba, y todos los umbrales se mueven a la vez. Con RADIO = 1 hay
+// 3^k - 1 vecinos (728 para k = 6). Un vecino solo es valido si cumple
+// 1 <= t1 < ... < tk <= 254, asi que las restricciones nunca se violan.
+// En cada iteracion se evaluan todos los vecinos validos y se pasa al mejor,
 // solo si mejora estrictamente a la solucion actual.
+
+const int RADIO = 1;
+
+
 struct Resultado {
     vector<int> umbrales;
     double valor = 0.0;
@@ -122,36 +183,48 @@ struct Resultado {
 };
 
 Resultado hillClimbing(const Instancia& ins, vector<int> t) {
-    const int k = static_cast<int>(t.size());
+    const int k = ins.k;
+    const int base = 2 * RADIO + 1;       // opciones por umbral: -RADIO, ..., 0, ..., +RADIO
+    long long total = 1;
+    for (int i = 0; i < k; ++i) total *= base;   // combinaciones posibles de movimientos
+
     Resultado r;
-    double actual = evaluar(t, ins);
+    double actual = f(t, ins);
     r.evaluaciones = 1;
 
     while (true) {
         double mejor = actual;
-        int mejorI = -1, mejorValor = 0;
+        vector<int> mejorVecino;             // queda vacio si ningun vecino mejora
+        vector<int> vecino(k);
 
-        for (int i = 0; i < k; ++i) {
-            int min_i = (i == 0) ? T_MIN : t[i - 1] + 1;
-            int max_i = (i == k - 1) ? T_MAX : t[i + 1] - 1;
-            int original = t[i];
-            for (int d : {-1, +1}) {
-                int nuevo = original + d;
-                if (nuevo < min_i || nuevo > max_i) continue;
-                t[i] = nuevo;
-                double v = evaluar(t, ins);
-                ++r.evaluaciones;
-                if (v > mejor + 1e-12) {
-                    mejor = v;
-                    mejorI = i;
-                    mejorValor = nuevo;
-                }
+        for (long long codigo = 0; codigo < total; ++codigo) {
+            // Decodifica el codigo: un desplazamiento por umbral
+            long long resto = codigo;
+            bool sinCambios = true;
+            for (int i = 0; i < k; ++i) {
+                int desplazamiento = static_cast<int>(resto % base) - RADIO;
+                resto /= base;
+                if (desplazamiento != 0) sinCambios = false;
+                vecino[i] = t[i] + desplazamiento;
             }
-            t[i] = original;
-        }
+            if (sinCambios) continue;        // es la solucion actual, no un vecino
 
-        if (mejorI < 0) break;  // optimo local: ningun vecino mejora
-        t[mejorI] = mejorValor;
+            // Restricciones: 1 <= t1 < ... < tk <= 254
+            bool valido = (vecino[0] >= T_MIN && vecino[k - 1] <= T_MAX);
+            for (int i = 1; i < k && valido; ++i) {
+                if (vecino[i] <= vecino[i - 1]) valido = false;
+            }
+            if (!valido) continue;
+
+            double v = f(vecino, ins);
+            ++r.evaluaciones;
+            if (v > mejor + 1e-12) {
+                mejor = v;
+                mejorVecino = vecino;
+            }
+        }
+        if (mejorVecino.empty()) break;      // optimo local: ningun vecino mejora
+        t = mejorVecino;
         actual = mejor;
         ++r.iteraciones;
     }
@@ -190,8 +263,9 @@ int main(int argc, char* argv[]) {
         Instancia ins = leerInstancia(rutaInstancia);
         mt19937 rng(semilla);
 
-        vector<int> inicial = solucionInicial(ins.k, rng);
-        double fInicial = evaluar(inicial, ins);
+        vector<int> inicial = solucionInicialAleatoria(ins.k, rng);
+        //vector<int> inicial = solucionInicialGreedy(ins, rng, M_GREEDY);
+        double fInicial = f(inicial, ins);
         Resultado r = hillClimbing(ins, inicial);
 
         fs::create_directories(carpetaSalida);
