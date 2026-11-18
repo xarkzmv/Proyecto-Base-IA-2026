@@ -246,8 +246,8 @@ int main(int argc, char* argv[]) {
         Instancia ins = leerInstancia(rutaInstancia);
         mt19937 rng(semilla);
 
-        //vector<int> inicial = solucionInicialAleatoria(ins.k, rng);
-        vector<int> inicial = solucionInicialGreedy(ins, rng, M_GREEDY);
+        vector<int> inicial = solucionInicialAleatoria(ins.k, rng);
+        
         double fInicial = f(inicial, ins);
         Resultado r = hillClimbing(ins, inicial);
 
