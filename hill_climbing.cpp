@@ -93,8 +93,7 @@ Instancia leerInstancia(const fs::path& ruta) {
 // f(t) = sum_j w_j (mu_j - muT)^2   (se maximiza). Costo O(k) gracias a P y S.
 // Una clase vacia (w_j = 0) aporta 0.
 double f(const vector<int>& t, const Instancia& ins) {
-    // k sale del tamano de t y no de ins.k: el greedy evalua soluciones parciales
-    // (con 1, 2, ... umbrales) mientras construye la solucion inicial.
+    // k es la cantidad de umbrales del vector t.
     const int k = static_cast<int>(t.size());
 
     double valor = 0.0;
@@ -122,10 +121,7 @@ double f(const vector<int>& t, const Instancia& ins) {
     return valor;
 }
 
-// ------------------------------------------------------------  SOLUCIÓN INICIAL
-// Se probaron con dos opciones, una es aleatoria y la otra es Greedy con aleatoriedad para combrobar cual es más eficiente. 
-
-// --------------------------------------------------Solucion inicial ALEATORIO
+// ------------------------------------------------------------  SOLUCIÓN INICIAL ALEATORIA
 
 // Solución inicial aleatoria: elige k umbrales distintos entre 1 y 254, en orden creciente.
 vector<int> solucionInicialAleatoria(int k, mt19937& rng) {

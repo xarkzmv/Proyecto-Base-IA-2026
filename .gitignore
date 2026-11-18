@@ -1,0 +1,15 @@
+hill_climbing
+preprocesar
+segmentar
+*.o
+*.d
+__pycache__/
+*.aux
+*.log
+*.out
+*.toc
+*.bbl
+*.blg
+*.synctex.gz
+*.fls
+*.fdb_latexmk
